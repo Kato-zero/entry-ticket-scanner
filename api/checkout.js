@@ -20,13 +20,13 @@ export default async function handler(req, res) {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          callbackUrl: "https://YOUR-DOMAIN.vercel.app/api/webhook",
+          callbackUrl: "https://https://buymecoffee-mu.vercel.app//api/webhook",
           referenceId,
           amount,
           narration: `Checkout payment by ${name}`,
           accountNumber: "260972643310",
           currency: "ZMW",
-          redirectUrl: "https://YOUR-DOMAIN.vercel.app/success.html"
+          redirectUrl: "https://https://buymecoffee-mu.vercel.app//success.html"
         })
       }
     );
