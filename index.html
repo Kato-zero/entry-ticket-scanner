@@ -1,36 +1,57 @@
-<button id="coffee">Buy me a coffee (K1)</button>
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Checkout</title>
+  <meta charset="UTF-8" />
+</head>
 
-<div id="status"></div>
+<body>
+  <h2>Checkout</h2>
+
+  <label>Name</label><br>
+  <input id="name" placeholder="Your name"><br><br>
+
+  <label>Amount (ZMW)</label><br>
+  <input id="amount" type="number" value="50"><br><br>
+
+  <button id="pay">Pay Now</button>
+
+  <p id="status"></p>
 
 <script>
-const button = document.getElementById("coffee");
-const statusDiv = document.getElementById("status");
+document.getElementById("pay").addEventListener("click", async () => {
+  const status = document.getElementById("status");
 
-button.addEventListener("click", async () => {
-  statusDiv.textContent = "Processing payment...";
+  status.textContent = "Creating payment...";
+
+  const body = {
+    name: document.getElementById("name").value,
+    amount: Number(document.getElementById("amount").value)
+  };
 
   try {
-    // ✅ Make sure method is POST
-    const res = await fetch("/api/create-payment", { method: "POST" });
+    const res = await fetch("/api/checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
 
-    // ✅ Parse JSON only after POST succeeds
     const data = await res.json();
+    console.log(data);
 
-    console.log("Payment response:", data);
-
-    if (data.lipila && data.lipila.status === "Pending") {
-      statusDiv.innerHTML = `
-        Payment request created! <br>
-        Reference ID: ${data.referenceId} <br>
-        <a href="${data.lipila.cardRedirectionUrl || '#'}" target="_blank">Complete Payment</a>
-      `;
+    if (data.redirectUrl) {
+      status.textContent = "Redirecting to payment...";
+      window.location.href = data.redirectUrl;
     } else {
-      statusDiv.textContent = "Failed to create payment. Check console for details.";
+      status.textContent = "Could not start payment.";
     }
 
-  } catch (err) {
-    console.error(err);
-    statusDiv.textContent = "Error creating payment. Check console.";
+  } catch (e) {
+    status.textContent = "Error creating payment.";
+    console.error(e);
   }
 });
 </script>
+
+</body>
+</html>
