@@ -1,535 +1,1265 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AliExpress Tablet Spec Checker</title>
-<style>
-:root {
-  --primary: #38bdf8;
-  --success: #10b981;
-  --warning: #f59e0b;
-  --danger: #ef4444;
-  --dark-bg: #020617;
-  --dark-surface: #1e293b;
-  --text-light: #e5e7eb;
-  --text-muted: #94a3b8;
-}
-
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-body {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background: var(--dark-bg);
-  color: var(--text-light);
-  line-height: 1.6;
-  padding: 20px;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.container {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 30px;
-  margin-top: 20px;
-}
-
-@media (max-width: 768px) {
-  .container {
-    grid-template-columns: 1fr;
-  }
-}
-
-header {
-  text-align: center;
-  margin-bottom: 30px;
-  padding-bottom: 20px;
-  border-bottom: 2px solid var(--dark-surface);
-}
-
-h1 {
-  color: var(--primary);
-  font-size: 2.5rem;
-  margin-bottom: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-}
-
-.subtitle {
-  color: var(--text-muted);
-  font-size: 1.1rem;
-}
-
-.card {
-  background: var(--dark-surface);
-  border-radius: 12px;
-  padding: 24px;
-  margin-bottom: 20px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-}
-
-.card h3 {
-  color: var(--primary);
-  margin-bottom: 16px;
-  font-size: 1.3rem;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-textarea {
-  width: 100%;
-  padding: 16px;
-  background: #0f172a;
-  border: 2px solid #334155;
-  border-radius: 8px;
-  color: var(--text-light);
-  font-size: 14px;
-  resize: vertical;
-  min-height: 180px;
-  transition: border-color 0.3s;
-}
-
-textarea:focus {
-  outline: none;
-  border-color: var(--primary);
-}
-
-textarea::placeholder {
-  color: #64748b;
-}
-
-.checklist {
-  list-style: none;
-}
-
-.checklist li {
-  padding: 12px 0;
-  border-bottom: 1px solid #334155;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.checklist li:last-child {
-  border-bottom: none;
-}
-
-.checklist li::before {
-  content: "✓";
-  color: var(--success);
-  font-weight: bold;
-  font-size: 1.2rem;
-}
-
-button {
-  background: linear-gradient(135deg, var(--primary), #0ea5e9);
-  color: white;
-  border: none;
-  padding: 16px;
-  border-radius: 8px;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s;
-  width: 100%;
-  margin-top: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-}
-
-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 12px rgba(56, 189, 248, 0.3);
-}
-
-button:active {
-  transform: translateY(0);
-}
-
-.result {
-  margin-top: 30px;
-  padding: 24px;
-  border-radius: 12px;
-  animation: fadeIn 0.5s ease;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.result.bad { 
-  background: linear-gradient(135deg, #7f1d1d, #991b1b);
-  border-left: 4px solid var(--danger);
-}
-
-.result.ok { 
-  background: linear-gradient(135deg, #065f46, #047857);
-  border-left: 4px solid var(--success);
-}
-
-.result.super { 
-  background: linear-gradient(135deg, #1e3a8a, #1d4ed8);
-  border-left: 4px solid var(--primary);
-}
-
-.result h2 {
-  font-size: 1.8rem;
-  margin-bottom: 20px;
-  color: white;
-}
-
-.result ul {
-  list-style: none;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 12px;
-}
-
-.result li {
-  padding: 12px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.pass { color: var(--success); }
-.fail { color: var(--danger); }
-.warning { color: var(--warning); }
-
-.stats {
-  display: flex;
-  gap: 20px;
-  margin-top: 20px;
-  padding: 15px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 8px;
-}
-
-.stat {
-  text-align: center;
-  flex: 1;
-}
-
-.stat-value {
-  font-size: 2rem;
-  font-weight: bold;
-  color: var(--primary);
-}
-
-.stat-label {
-  font-size: 0.9rem;
-  color: var(--text-muted);
-}
-
-.loading {
-  display: none;
-  text-align: center;
-  padding: 20px;
-  color: var(--primary);
-}
-
-.spinner {
-  border: 3px solid rgba(56, 189, 248, 0.3);
-  border-top: 3px solid var(--primary);
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
-  animation: spin 1s linear infinite;
-  margin: 0 auto 10px;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-.tips {
-  background: rgba(56, 189, 248, 0.1);
-  border: 1px solid rgba(56, 189, 248, 0.3);
-  border-radius: 8px;
-  padding: 16px;
-  margin-top: 20px;
-  font-size: 0.9rem;
-  color: var(--text-muted);
-}
-</style>
-</head>
-
-<body>
-<header>
-  <h1>📱 Tablet Spec Checker</h1>
-  <p class="subtitle">Analyze AliExpress tablet specifications against minimum requirements</p>
-</header>
-
-<div class="container">
-  <div>
-    <div class="card">
-      <h3>✅ Minimum Requirements</h3>
-      <ul class="checklist">
-        <li><strong>Storage:</strong> 64GB or more</li>
-        <li><strong>RAM:</strong> 2GB or more</li>
-        <li><strong>Battery:</strong> 5000mAh or more</li>
-        <li><strong>SIM Support:</strong> Required</li>
-        <li><strong>Charging:</strong> Type-C port</li>
-        <li><strong>Android Version:</strong> 13 or higher</li>
-      </ul>
-      
-      <div class="tips">
-        <strong>💡 Tip:</strong> Copy the entire product description from AliExpress and paste it below.
-      </div>
-    </div>
-  </div>
-
-  <div>
-    <div class="card">
-      <h3>📋 Paste Product Description</h3>
-      <textarea 
-        id="productText" 
-        rows="6" 
-        placeholder="Paste the full product description from AliExpress here...
-Example: 'Android 13 Tablet, 8GB RAM 128GB ROM, 10000mAh Battery, Dual SIM Support, Type-C Charging...'"
-      ></textarea>
-      
-      <button onclick="checkTablet()">
-        <span>🔍 Analyze Tablet Specs</span>
-      </button>
-      
-      <div class="loading" id="loading">
-        <div class="spinner"></div>
-        <p>Analyzing specifications...</p>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div id="output"></div>
-
-<script>
-function findNumber(text, keywords, unit = '') {
-  if (!text) return null;
-  
-  // Try different patterns
-  const patterns = [
-    new RegExp(`(\\d+(\\.\\d+)?)\\s*${unit}`, 'gi'),
-    new RegExp(`(${keywords.join('|')})\\s*(\\d+(\\.\\d+)?)`, 'gi')
-  ];
-  
-  for (const pattern of patterns) {
-    const match = text.match(pattern);
-    if (match) {
-      const numMatch = match[0].match(/\d+(\.\d+)?/);
-      return numMatch ? parseFloat(numMatch[0]) : null;
-    }
-  }
-  
-  return null;
-}
-
-function checkTablet() {
-  const text = document.getElementById('productText').value.trim();
-  
-  if (!text) {
-    alert('Please paste the product description first!');
-    return;
-  }
-  
-  const loading = document.getElementById('loading');
-  loading.style.display = 'block';
-  
-  // Simulate processing delay for better UX
-  setTimeout(() => {
-    analyzeTablet(text);
-    loading.style.display = 'none';
-  }, 500);
-}
-
-function analyzeTablet(text) {
-  const checklist = {
-    storage: 64,
-    ram: 2,
-    battery: 5000,
-    android: 13
-  };
-  
-  const lowerText = text.toLowerCase();
-  let results = [];
-  let passCount = 0;
-  let superCount = 0;
-  
-  // Improved regex patterns for better matching
-  const storage = findNumber(lowerText, ['gb rom', 'storage', 'rom'], 'gb') ||
-                  findNumber(lowerText, ['gb'], 'gb');
-  
-  const ram = findNumber(lowerText, ['gb ram', 'ram', 'memory'], 'gb');
-  
-  const battery = findNumber(lowerText, ['mah', 'battery'], 'mah');
-  
-  const android = findNumber(lowerText, ['android', 'android os', 'android version']) ||
-                  findNumber(lowerText, ['os']);
-  
-  const camera = findNumber(lowerText, ['mp', 'camera', 'megapixel'], 'mp');
-  
-  const sim = /sim|dual sim|sim card|cellular/i.test(text);
-  const typeC = /type[\s-]*c|usb[\s-]*c/i.test(text);
-  const has5G = /5g|5 g/i.test(text);
-  const hasFingerprint = /fingerprint|finger print/i.test(text);
-  const hasFastCharging = /fast[\s-]*charg|quick[\s-]*charg|pd/i.test(text);
-  
-  function evaluate(name, actual, required, unit = '') {
-    if (actual === null || actual === undefined) {
-      results.push(`<li class="warning">⚠️ ${name}: Not specified</li>`);
-      return;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#4CAF50">
+    <title>Morning Walk Tracker</title>
     
-    if (actual < required) {
-      results.push(`<li class="fail">❌ ${name}: ${actual}${unit} (Requires ${required}${unit})</li>`);
-    } else {
-      passCount++;
-      if (actual > required * 1.5) superCount++; // Only count as SUPER if significantly better
-      const symbol = actual > required ? '⭐' : '✅';
-      results.push(`<li class="pass">${symbol} ${name}: ${actual}${unit}</li>`);
-    }
-  }
-  
-  // Evaluate core requirements
-  evaluate('Storage', storage, checklist.storage, 'GB');
-  evaluate('RAM', ram, checklist.ram, 'GB');
-  evaluate('Battery', battery, checklist.battery, 'mAh');
-  evaluate('Android Version', android, checklist.android);
-  
-  // Check boolean features
-  if (sim) {
-    passCount++;
-    results.push(`<li class="pass">✅ SIM Support: Available</li>`);
-  } else {
-    results.push(`<li class="fail">❌ SIM Support: Not available</li>`);
-  }
-  
-  if (typeC) {
-    passCount++;
-    results.push(`<li class="pass">✅ Type-C Charging: Available</li>`);
-  } else {
-    results.push(`<li class="fail">❌ Type-C Charging: Not available</li>`);
-  }
-  
-  // Additional features (bonus points)
-  const additionalFeatures = [];
-  if (camera && camera >= 8) {
-    superCount++;
-    additionalFeatures.push(`<li class="pass">📸 Camera: ${camera}MP (Good)</li>`);
-  } else if (camera) {
-    additionalFeatures.push(`<li class="warning">📸 Camera: ${camera}MP</li>`);
-  }
-  
-  if (has5G) {
-    superCount++;
-    additionalFeatures.push(`<li class="pass">📶 5G Support: Available</li>`);
-  }
-  
-  if (hasFingerprint) {
-    superCount++;
-    additionalFeatures.push(`<li class="pass">👆 Fingerprint: Available</li>`);
-  }
-  
-  if (hasFastCharging) {
-    superCount++;
-    additionalFeatures.push(`<li class="pass">⚡ Fast Charging: Available</li>`);
-  }
-  
-  // Determine status
-  let status, className, statusMessage;
-  const totalRequirements = 6; // storage, ram, battery, android, sim, typeC
-  
-  if (passCount < 4) {
-    status = 'POOR';
-    className = 'bad';
-    statusMessage = 'Does not meet minimum requirements';
-  } else if (passCount >= 4 && passCount < 6) {
-    status = 'ACCEPTABLE';
-    className = 'ok';
-    statusMessage = 'Meets most requirements';
-  } else if (passCount === 6 && superCount < 3) {
-    status = 'GOOD';
-    className = 'ok';
-    statusMessage = 'Meets all requirements';
-  } else {
-    status = 'EXCELLENT';
-    className = 'super';
-    statusMessage = 'Exceeds requirements with premium features';
-  }
-  
-  // Render results
-  const output = document.getElementById('output');
-  output.innerHTML = `
-    <div class="result ${className}">
-      <h2>${status} - ${statusMessage}</h2>
-      
-      <div class="stats">
-        <div class="stat">
-          <div class="stat-value">${passCount}/${totalRequirements}</div>
-          <div class="stat-label">Requirements Met</div>
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="data:application/manifest+json,{
+        &quot;name&quot;: &quot;Morning Walk Tracker&quot;,
+        &quot;short_name&quot;: &quot;Walk Tracker&quot;,
+        &quot;description&quot;: &quot;Track your morning walking exercises with GPS&quot;,
+        &quot;start_url&quot;: &quot;.&quot;,
+        &quot;display&quot;: &quot;standalone&quot;,
+        &quot;background_color&quot;: &quot;#4CAF50&quot;,
+        &quot;theme_color&quot;: &quot;#4CAF50&quot;,
+        &quot;orientation&quot;: &quot;portrait&quot;,
+        &quot;icons&quot;: [
+            {
+                &quot;src&quot;: &quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🚶%3C/text%3E%3C/svg%3E&quot;,
+                &quot;sizes&quot;: &quot;192x192&quot;,
+                &quot;type&quot;: &quot;image/svg+xml&quot;
+            }
+        ]
+    }">
+    
+    <style>
+        /* Reset and Base Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+            font-size: 16px;
+            line-height: 1.5;
+            padding: 0;
+            margin: 0;
+        }
+
+        .app-container {
+            max-width: 500px;
+            margin: 0 auto;
+            background: white;
+            min-height: 100vh;
+            position: relative;
+        }
+
+        /* Header */
+        .app-header {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+            padding: 1.5rem 1rem;
+            text-align: center;
+        }
+
+        .app-header h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        /* GPS Status */
+        .gps-status {
+            background: #f8f9fa;
+            padding: 0.8rem 1rem;
+            margin: 1rem;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            font-size: 1rem;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ff6b6b;
+            animation: pulse 2s infinite;
+        }
+
+        .status-indicator.active {
+            background: #4CAF50;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        /* Main Content */
+        .app-main {
+            padding: 1rem;
+        }
+
+        /* Walk Info */
+        .walk-info {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.8rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .info-card {
+            background: white;
+            padding: 1rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            text-align: center;
+            border: 2px solid #e9ecef;
+        }
+
+        .info-card h2 {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        .info-card .value {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #2d3436;
+        }
+
+        /* Map */
+        .map-container {
+            height: 250px;
+            width: 100%;
+            border-radius: 15px;
+            overflow: hidden;
+            margin-bottom: 1.5rem;
+            border: 3px solid #4CAF50;
+            background: #f8f9fa;
+            position: relative;
+        }
+
+        .map-placeholder {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #e9ecef;
+            color: #666;
+        }
+
+        .map-placeholder i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            color: #4CAF50;
+        }
+
+        /* Buttons */
+        .control-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .btn-primary, .btn-secondary, .btn-emergency {
+            border: none;
+            padding: 1.2rem;
+            font-size: 1.2rem;
+            font-weight: 600;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            min-height: 60px;
+        }
+
+        .btn-large {
+            min-height: 70px;
+            font-size: 1.3rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-primary:not(:disabled):active {
+            transform: scale(0.98);
+            background: linear-gradient(135deg, #45a049, #3d8b40);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #6c757d, #5a6268);
+            color: white;
+        }
+
+        .btn-secondary:active {
+            transform: scale(0.98);
+        }
+
+        .btn-emergency {
+            background: linear-gradient(135deg, #dc3545, #c82333);
+            color: white;
+            width: 100%;
+            margin-bottom: 1rem;
+        }
+
+        .btn-emergency:active {
+            transform: scale(0.98);
+            background: linear-gradient(135deg, #c82333, #bd2130);
+        }
+
+        /* History Section */
+        .history-section {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin-top: 1rem;
+            display: none;
+        }
+
+        .history-section h2 {
+            font-size: 1.4rem;
+            margin-bottom: 1rem;
+            color: #2d3436;
+            text-align: center;
+        }
+
+        .history-tabs {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .tab-btn {
+            padding: 0.8rem;
+            background: white;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .tab-btn.active {
+            background: #4CAF50;
+            color: white;
+            border-color: #4CAF50;
+        }
+
+        .tab-content {
+            display: none;
+            min-height: 200px;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Walk Cards */
+        .walk-card {
+            background: white;
+            padding: 1rem;
+            border-radius: 10px;
+            margin-bottom: 0.8rem;
+            border-left: 4px solid #4CAF50;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .walk-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .walk-card-date {
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .walk-card-time {
+            font-size: 0.9rem;
+            color: #4CAF50;
+            font-weight: 600;
+        }
+
+        .walk-card-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.5rem;
+            text-align: center;
+        }
+
+        .walk-stat {
+            font-size: 0.9rem;
+        }
+
+        .walk-stat .label {
+            color: #666;
+            font-size: 0.8rem;
+            margin-bottom: 0.2rem;
+        }
+
+        .walk-stat .value {
+            font-weight: 700;
+            color: #2d3436;
+            font-size: 1rem;
+        }
+
+        .no-history {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: #666;
+            font-size: 1.1rem;
+        }
+
+        /* Footer */
+        .app-footer {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            text-align: center;
+            border-top: 2px solid #dee2e6;
+            margin-top: 2rem;
+        }
+
+        .footer-info {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .footer-info p {
+            margin-bottom: 0.5rem;
+            color: #666;
+        }
+
+        .small-text {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        /* Voice Feedback */
+        .voice-feedback {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 0.8rem 1.5rem;
+            border-radius: 25px;
+            font-size: 1rem;
+            animation: slideUp 0.3s ease;
+            z-index: 1000;
+            display: none;
+        }
+
+        @keyframes slideUp {
+            from { bottom: -50px; opacity: 0; }
+            to { bottom: 20px; opacity: 1; }
+        }
+
+        /* Map Canvas */
+        #mapCanvas {
+            width: 100%;
+            height: 100%;
+            background: #e9ecef;
+            display: none;
+        }
+
+        .map-location {
+            position: absolute;
+            background: #4CAF50;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            top: 10px;
+            left: 10px;
+            z-index: 10;
+        }
+
+        .map-route {
+            position: absolute;
+            background: rgba(76, 175, 80, 0.8);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        /* Responsive */
+        @media screen and (max-width: 400px) {
+            .walk-info {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 0.5rem;
+            }
+            
+            .info-card {
+                padding: 0.8rem 0.5rem;
+            }
+            
+            .info-card .value {
+                font-size: 1.2rem;
+            }
+            
+            .btn-large {
+                font-size: 1.1rem;
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- App Container -->
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <h1>🚶 Morning Walk Tracker</h1>
+            <p class="subtitle">Track your daily walking exercise</p>
+        </header>
+
+        <!-- Main Content -->
+        <main class="app-main">
+            <!-- GPS Status -->
+            <div id="gpsStatus" class="gps-status">
+                <div class="status-indicator" id="gpsIndicator"></div>
+                <span id="gpsText">Tap "Start Walk" to begin</span>
+            </div>
+
+            <!-- Walk Tracking Section -->
+            <section class="tracking-section">
+                <div class="walk-info">
+                    <div class="info-card">
+                        <h2>Distance</h2>
+                        <div class="value" id="distance">0.00 km</div>
+                    </div>
+                    <div class="info-card">
+                        <h2>Time</h2>
+                        <div class="value" id="duration">00:00</div>
+                    </div>
+                    <div class="info-card">
+                        <h2>Steps</h2>
+                        <div class="value" id="steps">0</div>
+                    </div>
+                </div>
+
+                <!-- Map Container -->
+                <div id="map" class="map-container">
+                    <div id="mapPlaceholder" class="map-placeholder">
+                        <div>📍</div>
+                        <p>Your walk route will appear here</p>
+                        <small>Tap "Start Walk" to begin tracking</small>
+                    </div>
+                    <canvas id="mapCanvas"></canvas>
+                    <div id="mapLocation" class="map-location" style="display: none;">
+                        Tracking...
+                    </div>
+                </div>
+
+                <!-- Control Buttons -->
+                <div class="control-buttons">
+                    <button id="startWalk" class="btn-primary btn-large">
+                        🚶 Start Walk
+                    </button>
+                    <button id="stopWalk" class="btn-secondary btn-large" disabled>
+                        ⏹️ Stop Walk
+                    </button>
+                </div>
+
+                <!-- Emergency Button -->
+                <button id="emergencyBtn" class="btn-emergency">
+                    🆘 Emergency Contact
+                </button>
+            </section>
+
+            <!-- History Section -->
+            <section class="history-section" id="historySection">
+                <h2>📅 Walk History</h2>
+                <div class="history-tabs">
+                    <button class="tab-btn active" data-tab="today">Today</button>
+                    <button class="tab-btn" data-tab="yesterday">Yesterday</button>
+                    <button class="tab-btn" data-tab="all">All Time</button>
+                </div>
+                <div class="history-content">
+                    <div id="todayHistory" class="tab-content active">
+                        <!-- Today's walks will be inserted here -->
+                    </div>
+                    <div id="yesterdayHistory" class="tab-content">
+                        <!-- Yesterday's walks will be inserted here -->
+                    </div>
+                    <div id="allHistory" class="tab-content">
+                        <!-- All walks will be inserted here -->
+                    </div>
+                </div>
+                <button id="backToTrack" class="btn-secondary">
+                    ← Back to Tracking
+                </button>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <div class="footer-info">
+                <p>Made for health and wellness</p>
+                <p class="small-text">Save to home screen for best experience</p>
+            </div>
+        </footer>
+
+        <!-- Voice Feedback Indicator -->
+        <div id="voiceFeedback" class="voice-feedback">
+            🔊 Speaking...
         </div>
-        <div class="stat">
-          <div class="stat-value">${superCount}</div>
-          <div class="stat-label">Premium Features</div>
-        </div>
-        <div class="stat">
-          <div class="stat-value">${Math.round((passCount / totalRequirements) * 100)}%</div>
-          <div class="stat-label">Score</div>
-        </div>
-      </div>
-      
-      <h3>📊 Specification Analysis</h3>
-      <ul>${results.join('')}</ul>
-      
-      ${additionalFeatures.length > 0 ? `
-        <h3>🌟 Additional Features</h3>
-        <ul>${additionalFeatures.join('')}</ul>
-      ` : ''}
-      
-      <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1);">
-        <p><strong>💡 Recommendation:</strong> ${
-          status === 'EXCELLENT' ? 'This tablet is a great choice with premium features!' :
-          status === 'GOOD' ? 'This tablet meets all basic requirements. Good value for money.' :
-          status === 'ACCEPTABLE' ? 'Consider your needs carefully. Some requirements are not met.' :
-          'Not recommended. Consider other options that meet minimum requirements.'
-        }</p>
-      </div>
     </div>
-  `;
-  
-  // Scroll to results
-  output.scrollIntoView({ behavior: 'smooth' });
-}
 
-// Add sample text for testing
-document.getElementById('productText').addEventListener('focus', function() {
-  if (this.value.trim() === '') {
-    this.value = `Android 13 Tablet, 8GB RAM 128GB ROM, 10000mAh Battery, Dual SIM Support, Type-C Charging, 12MP Camera, 5G Support, Fast Charging, Fingerprint Scanner, 10.1 inch Display
+    <script>
+        // Morning Walk Tracker PWA - Single File Implementation
+        class WalkTracker {
+            constructor() {
+                this.isWalking = false;
+                this.startTime = null;
+                this.walkInterval = null;
+                this.walkHistory = [];
+                this.currentWalk = null;
+                this.route = [];
+                this.totalDistance = 0;
+                this.steps = 0;
+                this.watchId = null;
+                this.mapContext = null;
+                this.lastPosition = null;
+                
+                // DOM Elements
+                this.distanceEl = document.getElementById('distance');
+                this.durationEl = document.getElementById('duration');
+                this.stepsEl = document.getElementById('steps');
+                this.startBtn = document.getElementById('startWalk');
+                this.stopBtn = document.getElementById('stopWalk');
+                this.gpsIndicator = document.getElementById('gpsIndicator');
+                this.gpsText = document.getElementById('gpsText');
+                this.emergencyBtn = document.getElementById('emergencyBtn');
+                this.historySection = document.getElementById('historySection');
+                this.backToTrackBtn = document.getElementById('backToTrack');
+                this.mapPlaceholder = document.getElementById('mapPlaceholder');
+                this.mapCanvas = document.getElementById('mapCanvas');
+                this.mapLocation = document.getElementById('mapLocation');
+                
+                // Initialize
+                this.init();
+            }
+            
+            init() {
+                // Load history
+                this.loadHistory();
+                
+                // Setup event listeners
+                this.setupEventListeners();
+                
+                // Setup canvas
+                this.setupCanvas();
+                
+                // Setup service worker
+                this.registerServiceWorker();
+                
+                // Display today's history
+                this.displayHistory('today');
+            }
+            
+            setupCanvas() {
+                const canvas = this.mapCanvas;
+                canvas.width = canvas.offsetWidth;
+                canvas.height = canvas.offsetHeight;
+                this.mapContext = canvas.getContext('2d');
+                this.clearMap();
+            }
+            
+            clearMap() {
+                const ctx = this.mapContext;
+                const width = this.mapCanvas.width;
+                const height = this.mapCanvas.height;
+                
+                // Clear canvas
+                ctx.clearRect(0, 0, width, height);
+                
+                // Draw background
+                ctx.fillStyle = '#e9ecef';
+                ctx.fillRect(0, 0, width, height);
+                
+                // Draw grid
+                ctx.strokeStyle = '#dee2e6';
+                ctx.lineWidth = 1;
+                
+                // Vertical lines
+                for (let x = 0; x < width; x += 50) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, height);
+                    ctx.stroke();
+                }
+                
+                // Horizontal lines
+                for (let y = 0; y < height; y += 50) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(width, y);
+                    ctx.stroke();
+                }
+                
+                // Draw "Ready to track" text
+                ctx.fillStyle = '#666';
+                ctx.font = '16px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('Ready to track your walk', width / 2, height / 2);
+                ctx.font = '14px sans-serif';
+                ctx.fillText('Tap "Start Walk" to begin', width / 2, height / 2 + 25);
+            }
+            
+            drawRoute() {
+                if (this.route.length < 2) return;
+                
+                const ctx = this.mapContext;
+                const width = this.mapCanvas.width;
+                const height = this.mapCanvas.height;
+                
+                // Calculate bounds
+                let minLat = Math.min(...this.route.map(p => p.lat));
+                let maxLat = Math.max(...this.route.map(p => p.lat));
+                let minLng = Math.min(...this.route.map(p => p.lng));
+                let maxLng = Math.max(...this.route.map(p => p.lng));
+                
+                // Add padding
+                const latRange = maxLat - minLat || 0.001;
+                const lngRange = maxLng - minLng || 0.001;
+                minLat -= latRange * 0.1;
+                maxLat += latRange * 0.1;
+                minLng -= lngRange * 0.1;
+                maxLng += lngRange * 0.1;
+                
+                // Convert coordinates to canvas positions
+                const points = this.route.map(point => {
+                    const x = ((point.lng - minLng) / (maxLng - minLng)) * width;
+                    const y = height - ((point.lat - minLat) / (maxLat - minLat)) * height;
+                    return { x, y };
+                });
+                
+                // Clear and redraw
+                ctx.clearRect(0, 0, width, height);
+                
+                // Draw background
+                ctx.fillStyle = '#e9ecef';
+                ctx.fillRect(0, 0, width, height);
+                
+                // Draw route
+                ctx.beginPath();
+                ctx.moveTo(points[0].x, points[0].y);
+                
+                for (let i = 1; i < points.length; i++) {
+                    ctx.lineTo(points[i].x, points[i].y);
+                }
+                
+                ctx.strokeStyle = '#4CAF50';
+                ctx.lineWidth = 4;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.stroke();
+                
+                // Draw start point
+                if (points.length > 0) {
+                    ctx.beginPath();
+                    ctx.arc(points[0].x, points[0].y, 8, 0, Math.PI * 2);
+                    ctx.fillStyle = '#4CAF50';
+                    ctx.fill();
+                    ctx.strokeStyle = 'white';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    
+                    ctx.fillStyle = 'white';
+                    ctx.font = 'bold 12px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('START', points[0].x, points[0].y);
+                }
+                
+                // Draw current position
+                if (points.length > 1) {
+                    const current = points[points.length - 1];
+                    ctx.beginPath();
+                    ctx.arc(current.x, current.y, 10, 0, Math.PI * 2);
+                    ctx.fillStyle = '#FF5722';
+                    ctx.fill();
+                    ctx.strokeStyle = 'white';
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                    
+                    // Pulse animation for current position
+                    ctx.beginPath();
+                    ctx.arc(current.x, current.y, 15, 0, Math.PI * 2);
+                    ctx.strokeStyle = 'rgba(255, 87, 34, 0.5)';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+                
+                // Update location text
+                if (this.route.length > 0) {
+                    const lastPoint = this.route[this.route.length - 1];
+                    this.mapLocation.textContent = 
+                        `📍 ${lastPoint.lat.toFixed(6)}, ${lastPoint.lng.toFixed(6)}`;
+                    this.mapLocation.style.display = 'block';
+                }
+            }
+            
+            async registerServiceWorker() {
+                if ('serviceWorker' in navigator) {
+                    try {
+                        // Create service worker inline
+                        const swCode = `
+                            self.addEventListener('install', (event) => {
+                                event.waitUntil(self.skipWaiting());
+                            });
+                            
+                            self.addEventListener('activate', (event) => {
+                                event.waitUntil(self.clients.claim());
+                            });
+                            
+                            self.addEventListener('fetch', (event) => {
+                                // Cache first strategy
+                                event.respondWith(
+                                    caches.match(event.request)
+                                        .then(response => response || fetch(event.request))
+                                );
+                            });
+                        `;
+                        
+                        const blob = new Blob([swCode], { type: 'application/javascript' });
+                        const swURL = URL.createObjectURL(blob);
+                        
+                        const registration = await navigator.serviceWorker.register(swURL);
+                        console.log('Service Worker registered');
+                    } catch (error) {
+                        console.log('Service Worker registration failed:', error);
+                    }
+                }
+            }
+            
+            setupEventListeners() {
+                // Start walk button
+                this.startBtn.addEventListener('click', () => this.startWalk());
+                
+                // Stop walk button
+                this.stopBtn.addEventListener('click', () => this.stopWalk());
+                
+                // Emergency button
+                this.emergencyBtn.addEventListener('click', () => this.handleEmergency());
+                
+                // History tab buttons
+                document.querySelectorAll('.tab-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const tab = e.target.dataset.tab;
+                        this.switchHistoryTab(tab);
+                    });
+                });
+                
+                // Back to tracking button
+                this.backToTrackBtn.addEventListener('click', () => {
+                    this.historySection.style.display = 'none';
+                    this.mapPlaceholder.style.display = 'flex';
+                    this.mapCanvas.style.display = 'none';
+                });
+                
+                // Show history when clicking on statistics
+                document.querySelectorAll('.info-card').forEach(card => {
+                    card.addEventListener('click', () => {
+                        this.showHistory();
+                    });
+                });
+                
+                // Handle window resize
+                window.addEventListener('resize', () => {
+                    this.setupCanvas();
+                    if (this.route.length > 0) {
+                        this.drawRoute();
+                    }
+                });
+            }
+            
+            startWalk() {
+                if (this.isWalking) return;
+                
+                // Request GPS permission
+                if (!navigator.geolocation) {
+                    this.showAlert('GPS is not supported by your device');
+                    return;
+                }
+                
+                // Show loading
+                this.startBtn.disabled = true;
+                this.startBtn.textContent = 'Checking GPS...';
+                this.gpsText.textContent = 'Requesting location access...';
+                
+                // Request location permission
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        // Permission granted
+                        this.isWalking = true;
+                        this.startTime = new Date();
+                        this.route = [];
+                        this.totalDistance = 0;
+                        this.steps = 0;
+                        
+                        // Add initial position
+                        const { latitude, longitude } = position.coords;
+                        this.route.push({ lat: latitude, lng: longitude, time: new Date() });
+                        this.lastPosition = { lat: latitude, lng: longitude };
+                        
+                        // Update UI
+                        this.startBtn.textContent = '🚶 Walking...';
+                        this.stopBtn.disabled = false;
+                        this.gpsIndicator.className = 'status-indicator active';
+                        this.gpsText.textContent = 'GPS Active - Tracking your walk';
+                        
+                        // Show map
+                        this.mapPlaceholder.style.display = 'none';
+                        this.mapCanvas.style.display = 'block';
+                        
+                        // Start tracking
+                        this.startTracking();
+                        
+                        // Start timer
+                        this.startTimer();
+                        
+                        // Voice feedback
+                        this.speak("Walk started. Enjoy your walk!");
+                        
+                        // Draw initial point
+                        this.drawRoute();
+                    },
+                    (error) => {
+                        // Permission denied or error
+                        this.handleGPSError(error);
+                        this.startBtn.disabled = false;
+                        this.startBtn.textContent = '🚶 Start Walk';
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 0
+                    }
+                );
+            }
+            
+            startTracking() {
+                const options = {
+                    enableHighAccuracy: true,
+                    timeout: 5000,
+                    maximumAge: 0
+                };
+                
+                this.watchId = navigator.geolocation.watchPosition(
+                    (position) => this.updatePosition(position),
+                    (error) => this.handleGPSError(error),
+                    options
+                );
+            }
+            
+            updatePosition(position) {
+                const { latitude, longitude, accuracy } = position.coords;
+                const timestamp = new Date(position.timestamp);
+                
+                // Update GPS accuracy display
+                this.gpsText.textContent = `GPS Active (Accuracy: ${Math.round(accuracy)}m)`;
+                
+                // Add to route
+                const newPoint = { lat: latitude, lng: longitude, time: timestamp, accuracy };
+                this.route.push(newPoint);
+                
+                // Calculate distance from last point
+                if (this.lastPosition) {
+                    const distance = this.calculateDistance(
+                        this.lastPosition.lat, this.lastPosition.lng,
+                        latitude, longitude
+                    );
+                    
+                    if (distance > 0) {
+                        this.totalDistance += distance;
+                        this.lastPosition = { lat: latitude, lng: longitude };
+                        
+                        // Estimate steps (average 0.0008 km per step)
+                        this.steps = Math.floor(this.totalDistance / 0.0008);
+                        
+                        // Update display
+                        this.distanceEl.textContent = `${this.totalDistance.toFixed(2)} km`;
+                        this.stepsEl.textContent = this.steps.toLocaleString();
+                        
+                        // Draw updated route
+                        this.drawRoute();
+                    }
+                } else {
+                    this.lastPosition = { lat: latitude, lng: longitude };
+                }
+            }
+            
+            calculateDistance(lat1, lon1, lat2, lon2) {
+                // Haversine formula (in kilometers)
+                const R = 6371;
+                const dLat = (lat2 - lat1) * Math.PI / 180;
+                const dLon = (lon2 - lon1) * Math.PI / 180;
+                const a = 
+                    Math.sin(dLat/2) * Math.sin(dLat/2) +
+                    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+                    Math.sin(dLon/2) * Math.sin(dLon/2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                return R * c;
+            }
+            
+            startTimer() {
+                this.walkInterval = setInterval(() => {
+                    const elapsed = new Date() - this.startTime;
+                    const minutes = Math.floor(elapsed / 60000);
+                    const seconds = Math.floor((elapsed % 60000) / 1000);
+                    this.durationEl.textContent = 
+                        `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                }, 1000);
+            }
+            
+            stopWalk() {
+                if (!this.isWalking) return;
+                
+                this.isWalking = false;
+                const endTime = new Date();
+                
+                // Stop tracking
+                if (this.watchId) {
+                    navigator.geolocation.clearWatch(this.watchId);
+                    this.watchId = null;
+                }
+                
+                // Stop timer
+                if (this.walkInterval) {
+                    clearInterval(this.walkInterval);
+                    this.walkInterval = null;
+                }
+                
+                // Calculate duration
+                const durationMs = endTime - this.startTime;
+                const durationMinutes = Math.floor(durationMs / 60000);
+                const durationSeconds = Math.floor((durationMs % 60000) / 1000);
+                
+                // Create walk record
+                const walk = {
+                    id: Date.now(),
+                    startTime: this.startTime,
+                    endTime: endTime,
+                    duration: durationMs / 1000, // seconds
+                    distance: this.totalDistance,
+                    steps: this.steps,
+                    route: this.route,
+                    date: new Date().toISOString().split('T')[0]
+                };
+                
+                // Add to history
+                this.walkHistory.unshift(walk);
+                this.saveHistory();
+                
+                // Update UI
+                this.startBtn.disabled = false;
+                this.stopBtn.disabled = true;
+                this.startBtn.textContent = '🚶 Start Walk';
+                this.gpsText.textContent = 'Tap "Start Walk" to begin';
+                this.gpsIndicator.className = 'status-indicator';
+                
+                // Show summary
+                this.showSummary(walk);
+                
+                // Voice feedback
+                this.speak(`Walk completed! You walked ${this.totalDistance.toFixed(2)} kilometers in ${durationMinutes} minutes and ${durationSeconds} seconds.`);
+                
+                // Reset for next walk
+                this.lastPosition = null;
+            }
+            
+            showSummary(walk) {
+                const durationMinutes = Math.floor(walk.duration / 60);
+                const durationSeconds = Math.floor(walk.duration % 60);
+                
+                this.showAlert(
+                    `🎉 Walk Completed!\n\n` +
+                    `📏 Distance: ${walk.distance.toFixed(2)} km\n` +
+                    `⏱️ Time: ${durationMinutes}m ${durationSeconds}s\n` +
+                    `👣 Steps: ${walk.steps.toLocaleString()}\n\n` +
+                    `Your walk has been saved to history.`
+                );
+            }
+            
+            showAlert(message) {
+                alert(message);
+            }
+            
+            handleGPSError(error) {
+                let message = 'GPS Error: ';
+                
+                switch(error.code) {
+                    case error.PERMISSION_DENIED:
+                        message += 'Location access was denied. Please enable location services in your browser settings.';
+                        break;
+                    case error.POSITION_UNAVAILABLE:
+                        message += 'Location information is unavailable. Please check your GPS signal.';
+                        break;
+                    case error.TIMEOUT:
+                        message += 'Location request timed out. Please try again.';
+                        break;
+                    default:
+                        message += 'An unknown error occurred.';
+                }
+                
+                this.gpsText.textContent = message;
+                this.gpsIndicator.className = 'status-indicator';
+                
+                if (this.isWalking) {
+                    this.showAlert(message);
+                    this.stopWalk();
+                }
+            }
+            
+            handleEmergency() {
+                // Use device's emergency call capability
+                const phoneNumber = "911"; // Change to your emergency number
+                
+                if (confirm(`🆘 EMERGENCY\n\nCall emergency services?\n\nNumber: ${phoneNumber}\n\nYour current location will be shared if possible.`)) {
+                    this.speak("Calling emergency services.");
+                    
+                    // Try to make phone call
+                    window.location.href = `tel:${phoneNumber}`;
+                    
+                    // Also try to send location via SMS
+                    if (navigator.geolocation && this.route.length > 0) {
+                        const lastLocation = this.route[this.route.length - 1];
+                        const message = `EMERGENCY - My location: https://maps.google.com/?q=${lastLocation.lat},${lastLocation.lng}`;
+                        const smsUrl = `sms:${phoneNumber}?body=${encodeURIComponent(message)}`;
+                        
+                        // Try SMS after a short delay
+                        setTimeout(() => {
+                            window.location.href = smsUrl;
+                        }, 1000);
+                    }
+                }
+            }
+            
+            speak(text) {
+                if ('speechSynthesis' in window) {
+                    // Cancel any ongoing speech
+                    speechSynthesis.cancel();
+                    
+                    // Create and configure utterance
+                    const utterance = new SpeechSynthesisUtterance(text);
+                    utterance.rate = 0.9;
+                    utterance.pitch = 1;
+                    utterance.volume = 1;
+                    
+                    // Show voice feedback
+                    const voiceFeedback = document.getElementById('voiceFeedback');
+                    voiceFeedback.textContent = `🔊 ${text}`;
+                    voiceFeedback.style.display = 'block';
+                    
+                    // Hide feedback when done
+                    utterance.onend = () => {
+                        setTimeout(() => {
+                            voiceFeedback.style.display = 'none';
+                        }, 1000);
+                    };
+                    
+                    // Speak
+                    speechSynthesis.speak(utterance);
+                }
+            }
+            
+            showHistory() {
+                this.historySection.style.display = 'block';
+                this.displayHistory('today');
+            }
+            
+            switchHistoryTab(tab) {
+                // Update active tab button
+                document.querySelectorAll('.tab-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                    if (btn.dataset.tab === tab) {
+                        btn.classList.add('active');
+                    }
+                });
+                
+                // Update active tab content
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.classList.remove('active');
+                });
+                document.getElementById(`${tab}History`).classList.add('active');
+                
+                // Display history for selected tab
+                this.displayHistory(tab);
+            }
+            
+            displayHistory(tab) {
+                const container = document.getElementById(`${tab}History`);
+                
+                let filteredWalks = [];
+                const today = new Date().toISOString().split('T')[0];
+                const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+                
+                switch(tab) {
+                    case 'today':
+                        filteredWalks = this.walkHistory.filter(walk => walk.date === today);
+                        break;
+                    case 'yesterday':
+                        filteredWalks = this.walkHistory.filter(walk => walk.date === yesterday);
+                        break;
+                    case 'all':
+                        filteredWalks = this.walkHistory;
+                        break;
+                }
+                
+                if (filteredWalks.length === 0) {
+                    container.innerHTML = `
+                        <div class="no-history">
+                            <p>No walks recorded yet</p>
+                            <p>Start your first walk today!</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                container.innerHTML = filteredWalks.map(walk => this.createWalkCard(walk)).join('');
+            }
+            
+            createWalkCard(walk) {
+                const startTime = new Date(walk.startTime);
+                const durationMinutes = Math.floor(walk.duration / 60);
+                const durationSeconds = Math.floor(walk.duration % 60);
+                
+                return `
+                    <div class="walk-card">
+                        <div class="walk-card-header">
+                            <div class="walk-card-date">
+                                ${startTime.toLocaleDateString()}
+                            </div>
+                            <div class="walk-card-time">
+                                ${startTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                            </div>
+                        </div>
+                        <div class="walk-card-stats">
+                            <div class="walk-stat">
+                                <div class="label">Distance</div>
+                                <div class="value">${walk.distance.toFixed(2)} km</div>
+                            </div>
+                            <div class="walk-stat">
+                                <div class="label">Time</div>
+                                <div class="value">${durationMinutes}m</div>
+                            </div>
+                            <div class="walk-stat">
+                                <div class="label">Steps</div>
+                                <div class="value">${walk.steps.toLocaleString()}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            saveHistory() {
+                // Keep only last 50 walks
+                if (this.walkHistory.length > 50) {
+                    this.walkHistory = this.walkHistory.slice(0, 50);
+                }
+                
+                // Save to localStorage
+                try {
+                    localStorage.setItem('walkHistory', JSON.stringify(this.walkHistory));
+                    
+                    // Update all history tabs
+                    ['today', 'yesterday', 'all'].forEach(tab => {
+                        this.displayHistory(tab);
+                    });
+                } catch (e) {
+                    console.log('Failed to save history:', e);
+                }
+            }
+            
+            loadHistory() {
+                try {
+                    const saved = localStorage.getItem('walkHistory');
+                    if (saved) {
+                        this.walkHistory = JSON.parse(saved);
+                        // Convert date strings back to Date objects
+                        this.walkHistory.forEach(walk => {
+                            walk.startTime = new Date(walk.startTime);
+                            walk.endTime = new Date(walk.endTime);
+                        });
+                    }
+                } catch (e) {
+                    console.log('Failed to load history:', e);
+                    this.walkHistory = [];
+                }
+            }
+        }
 
-Specifications:
-- Operating System: Android 13
-- RAM: 8GB
-- ROM: 128GB
-- Battery: 10000mAh
-- Connectivity: 5G, Dual SIM, Wi-Fi 6
-- Ports: Type-C, USB 3.0
-- Features: Fast Charging, Fingerprint Scanner, Face Unlock`;
-  }
-});
-</script>
+        // Initialize the app when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            // Create walk tracker instance
+            window.walkTracker = new WalkTracker();
+            
+            // Handle PWA installation
+            let deferredPrompt;
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredPrompt = e;
+                
+                // Show install prompt after 5 seconds
+                setTimeout(() => {
+                    if (deferredPrompt && confirm('Install Morning Walk Tracker as an app for better experience?')) {
+                        deferredPrompt.prompt();
+                        deferredPrompt.userChoice.then((choiceResult) => {
+                            deferredPrompt = null;
+                        });
+                    }
+                }, 5000);
+            });
+            
+            // Handle app visibility
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden && window.walkTracker && window.walkTracker.isWalking) {
+                    // Show reminder when app is minimized during a walk
+                    if ('Notification' in window && Notification.permission === 'granted') {
+                        new Notification('Walk in Progress', {
+                            body: 'Your walk is still being tracked. Tap to return.',
+                            icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🚶</text></svg>'
+                        });
+                    }
+                }
+            });
+            
+            // Request notification permission
+            if ('Notification' in window && Notification.permission === 'default') {
+                setTimeout(() => {
+                    Notification.requestPermission();
+                }, 2000);
+            }
+        });
+    </script>
 </body>
 </html>
