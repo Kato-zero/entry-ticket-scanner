@@ -120,6 +120,36 @@
             border: 1px solid rgba(76, 175, 80, 0.2);
         }
         
+        /* Online Sync Status */
+        .sync-status {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            z-index: 1000;
+            display: none;
+            border: 1px solid rgba(33, 150, 243, 0.2);
+        }
+        
+        .sync-status.syncing {
+            color: var(--warning-color);
+            border-color: var(--warning-color);
+        }
+        
+        .sync-status.online {
+            color: var(--success-color);
+            border-color: var(--success-color);
+        }
+        
+        .sync-status.offline {
+            color: var(--danger-color);
+            border-color: var(--danger-color);
+        }
+        
         /* PWA-specific styles */
         @media (display-mode: standalone) {
             body {
@@ -220,7 +250,7 @@
             margin-bottom: 15px;
         }
         
-        /* Rest of your existing CSS remains the same, with CSS variables */
+        /* Rest of your existing CSS remains the same */
         * {
             margin: 0;
             padding: 0;
@@ -407,6 +437,16 @@
         .btn-danger:hover {
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(220, 53, 69, 0.4);
+        }
+
+        .btn-accent {
+            background: linear-gradient(135deg, var(--accent-color), #1976D2);
+            color: white;
+        }
+
+        .btn-accent:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(33, 150, 243, 0.4);
         }
 
         .stats-card {
@@ -731,6 +771,7 @@
         .toast.success { background: var(--success-color); }
         .toast.error { background: var(--danger-color); }
         .toast.warning { background: var(--warning-color); color: #212529; }
+        .toast.info { background: var(--accent-color); }
 
         /* Mobile Optimizations */
         @media (max-width: 768px) {
@@ -768,6 +809,9 @@
     <!-- PWA Status Indicator -->
     <div class="pwa-status" id="pwaStatus">📱 App Installed</div>
     
+    <!-- Sync Status Indicator -->
+    <div class="sync-status" id="syncStatus">⚡ Online</div>
+    
     <!-- Offline Indicator -->
     <div id="offlineIndicator">📡 You're offline - App still works!</div>
     
@@ -803,10 +847,11 @@
                     <div class="data-format-info">
                         <h4>📋 Expected Data Format (Tab/Comma Separated):</h4>
                         <div>Date Time | Name | Email | Phone | Ticket Type | Quantity | Ticket ID | Amount | Event | Time | Date | Venue</div>
-                        <div class="format-example">12/28/2025 21:55:39	Jacob Michelo	jcbmichelo@gmail.com	0979140681	Double : 2 people [ k600]	1	NOL-1766951741348	600	FAMILY MATAZ & a short story	19:30	February 14, 2026.	MKANGO GOLF VIEW</div>
+                        <div class="format-example">12/28/2025 21:55:39	Jacob Michelo	jcbmichelo@gmail.com	0979140681	Double : 2 people [ k600]	2	NOL-1766951741348	600	FAMILY MATAZ & a short story	19:30	February 14, 2026.	MKANGO GOLF VIEW</div>
                         <p style="margin-top: 10px; color: #666; font-size: 0.85rem;">
                             <strong>Note:</strong> Paste tab-separated data (copied from spreadsheet). Each line becomes one ticket.
                             <br><strong>Quantity Feature:</strong> Tickets can be scanned multiple times according to quantity value.
+                            <br><strong>Cloud Sync:</strong> All data is saved online and synchronized across devices.
                         </p>
                     </div>
                     
@@ -825,17 +870,26 @@
                     </div>
                     
                     <div class="button-group">
+                        <button class="btn-accent" id="syncTickets">
+                            🔄 Sync with Cloud
+                        </button>
                         <button class="btn-secondary" id="exportTickets">
                             📤 Export Tickets
                         </button>
+                    </div>
+                    
+                    <div class="button-group">
                         <button class="btn-danger" id="clearStorage">
-                            🗑️ Clear All Data
+                            🗑️ Clear Local Data
+                        </button>
+                        <button class="btn-danger" id="clearCloud">
+                            ☁️ Clear Cloud Data
                         </button>
                     </div>
                     
                     <p style="margin-top: 15px; color: #6c757d; font-size: 0.9rem; text-align: center;">
-                        Load: Overwrites all existing tickets<br>
-                        Merge: Adds new tickets, keeps existing usage data
+                        <strong>Sync Status:</strong> <span id="syncStatusText">Checking...</span><br>
+                        <span id="lastSyncText"></span>
                     </p>
                 </div>
 
@@ -914,7 +968,7 @@
         </main>
 
         <footer>
-            <p>QR Ticket Validator PWA | Works completely offline | Install for best experience</p>
+            <p>QR Ticket Validator PWA | Cloud Sync Enabled | Works offline | Install for best experience</p>
         </footer>
     </div>
 
@@ -926,9 +980,21 @@
     <!-- Toast Notifications -->
     <div class="toast" id="toast"></div>
 
+    <!-- Include Supabase JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
     <script>
         // ==============================================
-        // PWA MANAGER - Handles installation and offline capabilities
+        // SUPABASE CONFIGURATION
+        // ==============================================
+        // REPLACE THESE WITH YOUR SUPABASE CREDENTIALS
+        const SUPABASE_CONFIG = {
+            url: 'https://YOUR_PROJECT_ID.supabase.co',  // Replace with your Supabase URL
+            anonKey: 'YOUR_ANON_KEY'                    // Replace with your Supabase anon key
+        };
+
+        // ==============================================
+        // PWA MANAGER
         // ==============================================
         class PWAManager {
             constructor() {
@@ -948,7 +1014,6 @@
             }
             
             checkInstallation() {
-                // Check if app is running in standalone mode (installed)
                 this.isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
                                    window.matchMedia('(display-mode: fullscreen)').matches ||
                                    window.navigator.standalone === true;
@@ -972,18 +1037,15 @@
             }
             
             setupEventListeners() {
-                // Online/offline detection
                 window.addEventListener('online', () => this.updateOnlineStatus());
                 window.addEventListener('offline', () => this.updateOnlineStatus());
                 
-                // Before install prompt
                 window.addEventListener('beforeinstallprompt', (e) => {
                     e.preventDefault();
                     this.deferredPrompt = e;
                     this.showInstallPrompt();
                 });
                 
-                // App installed
                 window.addEventListener('appinstalled', () => {
                     this.isInstalled = true;
                     this.isStandalone = true;
@@ -991,33 +1053,23 @@
                     this.updatePWAStatus();
                     this.hideInstallPrompt();
                     this.showToast('App installed successfully!', 'success');
-                    console.log('PWA installed');
                 });
             }
             
             setupServiceWorker() {
                 if ('serviceWorker' in navigator) {
-                    // Create service worker code inline
                     const swCode = `
                         const CACHE_NAME = 'ticket-validator-v1.0';
-                        const CACHE_URLS = [
-                            '/',
-                            './index.html'
-                        ];
+                        const CACHE_URLS = ['/', './index.html'];
                         
-                        // Install event
                         self.addEventListener('install', event => {
                             event.waitUntil(
                                 caches.open(CACHE_NAME)
-                                    .then(cache => {
-                                        console.log('Cache opened');
-                                        return cache.addAll(CACHE_URLS);
-                                    })
+                                    .then(cache => cache.addAll(CACHE_URLS))
                                     .then(() => self.skipWaiting())
                             );
                         });
                         
-                        // Activate event
                         self.addEventListener('activate', event => {
                             event.waitUntil(
                                 caches.keys().then(cacheNames => {
@@ -1032,61 +1084,37 @@
                             );
                         });
                         
-                        // Fetch event
                         self.addEventListener('fetch', event => {
-                            // Skip non-GET requests
                             if (event.request.method !== 'GET') return;
                             
                             event.respondWith(
                                 caches.match(event.request)
                                     .then(response => {
-                                        // Return cached version if found
-                                        if (response) {
-                                            return response;
-                                        }
+                                        if (response) return response;
                                         
-                                        // Otherwise fetch from network
                                         return fetch(event.request)
                                             .then(response => {
-                                                // Don't cache if not a valid response
                                                 if (!response || response.status !== 200 || response.type !== 'basic') {
                                                     return response;
                                                 }
                                                 
-                                                // Clone response for caching
                                                 const responseToCache = response.clone();
-                                                
                                                 caches.open(CACHE_NAME)
-                                                    .then(cache => {
-                                                        cache.put(event.request, responseToCache);
-                                                    });
+                                                    .then(cache => cache.put(event.request, responseToCache));
                                                 
                                                 return response;
                                             })
                                             .catch(() => {
-                                                // For HTML pages, return offline page
                                                 if (event.request.headers.get('accept').includes('text/html')) {
                                                     return caches.match('/');
                                                 }
                                                 return new Response('Offline', {
                                                     status: 503,
-                                                    statusText: 'Service Unavailable',
-                                                    headers: new Headers({
-                                                        'Content-Type': 'text/plain'
-                                                    })
+                                                    statusText: 'Service Unavailable'
                                                 });
                                             });
                                     })
                             );
-                        });
-                        
-                        // Message handling
-                        self.addEventListener('message', event => {
-                            if (event.data && event.data.type === 'CACHE_TICKET_DATA') {
-                                caches.open(CACHE_NAME).then(cache => {
-                                    cache.put('ticket-data', new Response(JSON.stringify(event.data.payload)));
-                                });
-                            }
                         });
                     `;
                     
@@ -1097,14 +1125,6 @@
                         navigator.serviceWorker.register(swURL)
                             .then(registration => {
                                 console.log('Service Worker registered:', registration);
-                                
-                                // Check for updates
-                                registration.addEventListener('updatefound', () => {
-                                    console.log('New service worker found');
-                                    if (confirm('New version available. Update now?')) {
-                                        registration.update();
-                                    }
-                                });
                             })
                             .catch(error => {
                                 console.error('Service Worker registration failed:', error);
@@ -1133,18 +1153,14 @@
                 document.getElementById('installLater').addEventListener('click', () => this.hideInstallPrompt());
                 document.getElementById('headerInstallBtn').addEventListener('click', () => this.showInstallPrompt());
                 
-                // Auto-show install prompt after 10 seconds if not installed
                 if (!this.isInstalled) {
-                    setTimeout(() => {
-                        this.showInstallPrompt();
-                    }, 10000);
+                    setTimeout(() => this.showInstallPrompt(), 10000);
                 }
             }
             
             showInstallPrompt() {
                 if (this.deferredPrompt && !this.isInstalled && !this.isStandalone) {
-                    const prompt = document.getElementById('installPrompt');
-                    prompt.style.display = 'block';
+                    document.getElementById('installPrompt').style.display = 'block';
                     document.getElementById('headerInstallBtn').style.display = 'block';
                 }
             }
@@ -1164,12 +1180,10 @@
                     const choiceResult = await this.deferredPrompt.userChoice;
                     
                     if (choiceResult.outcome === 'accepted') {
-                        console.log('User accepted install');
                         this.isInstalled = true;
                         localStorage.setItem('pwaInstalled', 'true');
                         this.showToast('Installing...', 'success');
                     } else {
-                        console.log('User declined install');
                         this.showToast('Installation cancelled', 'warning');
                     }
                     
@@ -1188,18 +1202,445 @@
                 toast.className = `toast ${type}`;
                 toast.classList.add('show');
                 
-                setTimeout(() => {
-                    toast.classList.remove('show');
-                }, 3000);
+                setTimeout(() => toast.classList.remove('show'), 3000);
             }
         }
         
         // ==============================================
-        // TICKET VALIDATION SYSTEM
+        // CLOUD SYNC MANAGER (Supabase)
         // ==============================================
-        // Storage Manager
-        class StorageManager {
+        class CloudSyncManager {
             constructor() {
+                this.supabase = null;
+                this.isOnline = navigator.onLine;
+                this.lastSync = null;
+                this.syncQueue = [];
+                this.isSyncing = false;
+                this.init();
+            }
+            
+            async init() {
+                await this.initializeSupabase();
+                this.setupEventListeners();
+                this.updateSyncStatus();
+                this.startSyncInterval();
+            }
+            
+            async initializeSupabase() {
+                try {
+                    // Check if Supabase credentials are configured
+                    if (!SUPABASE_CONFIG.url || SUPABASE_CONFIG.url.includes('YOUR_PROJECT_ID') ||
+                        !SUPABASE_CONFIG.anonKey || SUPABASE_CONFIG.anonKey.includes('YOUR_ANON_KEY')) {
+                        console.warn('Supabase not configured. Cloud sync disabled.');
+                        return false;
+                    }
+                    
+                    this.supabase = supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
+                    
+                    // Test connection
+                    const { error } = await this.supabase.from('tickets').select('count').limit(1);
+                    
+                    if (error) {
+                        console.error('Supabase connection failed:', error);
+                        this.showToast('Cloud sync disabled. Check Supabase configuration.', 'warning');
+                        return false;
+                    }
+                    
+                    console.log('Supabase connected successfully');
+                    return true;
+                    
+                } catch (error) {
+                    console.error('Failed to initialize Supabase:', error);
+                    return false;
+                }
+            }
+            
+            setupEventListeners() {
+                window.addEventListener('online', () => {
+                    this.isOnline = true;
+                    this.updateSyncStatus();
+                    this.processSyncQueue();
+                });
+                
+                window.addEventListener('offline', () => {
+                    this.isOnline = false;
+                    this.updateSyncStatus();
+                });
+            }
+            
+            updateSyncStatus() {
+                const syncEl = document.getElementById('syncStatus');
+                const statusText = document.getElementById('syncStatusText');
+                const lastSyncText = document.getElementById('lastSyncText');
+                
+                if (!this.supabase) {
+                    syncEl.textContent = '☁️ Cloud Disabled';
+                    syncEl.className = 'sync-status offline';
+                    syncEl.style.display = 'block';
+                    statusText.textContent = 'Cloud disabled';
+                    return;
+                }
+                
+                if (!this.isOnline) {
+                    syncEl.textContent = '📡 Offline';
+                    syncEl.className = 'sync-status offline';
+                    syncEl.style.display = 'block';
+                    statusText.textContent = 'Working offline';
+                } else if (this.isSyncing) {
+                    syncEl.textContent = '🔄 Syncing...';
+                    syncEl.className = 'sync-status syncing';
+                    syncEl.style.display = 'block';
+                    statusText.textContent = 'Syncing with cloud...';
+                } else {
+                    syncEl.textContent = '⚡ Online';
+                    syncEl.className = 'sync-status online';
+                    syncEl.style.display = 'block';
+                    statusText.textContent = 'Connected to cloud';
+                }
+                
+                if (this.lastSync) {
+                    const lastSyncTime = new Date(this.lastSync);
+                    const now = new Date();
+                    const diffMinutes = Math.floor((now - lastSyncTime) / (1000 * 60));
+                    
+                    if (diffMinutes < 1) {
+                        lastSyncText.textContent = 'Last sync: Just now';
+                    } else if (diffMinutes < 60) {
+                        lastSyncText.textContent = `Last sync: ${diffMinutes} minute(s) ago`;
+                    } else {
+                        lastSyncText.textContent = `Last sync: ${lastSyncTime.toLocaleTimeString()}`;
+                    }
+                } else {
+                    lastSyncText.textContent = 'Last sync: Never';
+                }
+            }
+            
+            startSyncInterval() {
+                // Auto-sync every 30 seconds when online
+                setInterval(() => {
+                    if (this.isOnline && this.supabase) {
+                        this.syncAllData();
+                    }
+                }, 30000);
+            }
+            
+            async syncAllData() {
+                if (!this.supabase || !this.isOnline || this.isSyncing) return;
+                
+                this.isSyncing = true;
+                this.updateSyncStatus();
+                
+                try {
+                    // Process any pending sync items
+                    await this.processSyncQueue();
+                    
+                    // Sync tickets
+                    const localTickets = storageManager.loadTickets();
+                    await this.syncTicketsToCloud(localTickets);
+                    
+                    // Sync scan history
+                    const localHistory = storageManager.loadScanHistory();
+                    await this.syncScanHistoryToCloud(localHistory);
+                    
+                    this.lastSync = new Date().toISOString();
+                    localStorage.setItem('lastSync', this.lastSync);
+                    
+                    console.log('Full sync completed');
+                    
+                } catch (error) {
+                    console.error('Sync failed:', error);
+                } finally {
+                    this.isSyncing = false;
+                    this.updateSyncStatus();
+                }
+            }
+            
+            async syncTicketsToCloud(tickets) {
+                if (!this.supabase || tickets.length === 0) return;
+                
+                try {
+                    // Batch process tickets (Supabase has limits on batch size)
+                    const batchSize = 50;
+                    for (let i = 0; i < tickets.length; i += batchSize) {
+                        const batch = tickets.slice(i, i + batchSize);
+                        
+                        // Prepare batch for upsert
+                        const batchData = batch.map(ticket => ({
+                            id: ticket.id,
+                            purchase_datetime: ticket.purchaseDateTime,
+                            name: ticket.name,
+                            email: ticket.email,
+                            phone: ticket.phone,
+                            ticket_type: ticket.ticketType,
+                            quantity: ticket.quantity,
+                            max_scans: ticket.maxScans,
+                            amount: ticket.amount,
+                            event: ticket.event,
+                            event_time: ticket.eventTime,
+                            event_date: ticket.eventDate,
+                            venue: ticket.venue,
+                            used: ticket.used,
+                            used_at: ticket.usedAt,
+                            scanned_by: ticket.scannedBy,
+                            scan_count: ticket.scanCount,
+                            updated_at: new Date().toISOString()
+                        }));
+                        
+                        const { error } = await this.supabase
+                            .from('tickets')
+                            .upsert(batchData, { onConflict: 'id' });
+                        
+                        if (error) throw error;
+                        
+                        console.log(`Synced batch ${i/batchSize + 1} of ${Math.ceil(tickets.length/batchSize)}`);
+                    }
+                    
+                    return true;
+                    
+                } catch (error) {
+                    console.error('Error syncing tickets to cloud:', error);
+                    throw error;
+                }
+            }
+            
+            async syncScanHistoryToCloud(history) {
+                if (!this.supabase || history.length === 0) return;
+                
+                try {
+                    const batchData = history.map(scan => ({
+                        ticket_id: scan.ticketId,
+                        status: scan.status,
+                        timestamp: scan.timestamp,
+                        date: scan.date,
+                        name: scan.name,
+                        ticket_type: scan.ticketType,
+                        scan_count: scan.scanCount,
+                        max_scans: scan.maxScans
+                    }));
+                    
+                    const { error } = await this.supabase
+                        .from('scan_history')
+                        .insert(batchData);
+                    
+                    if (error) throw error;
+                    
+                    return true;
+                    
+                } catch (error) {
+                    console.error('Error syncing scan history to cloud:', error);
+                    throw error;
+                }
+            }
+            
+            async loadTicketsFromCloud() {
+                if (!this.supabase || !this.isOnline) {
+                    return { success: false, error: 'Not connected to cloud' };
+                }
+                
+                try {
+                    const { data: cloudTickets, error } = await this.supabase
+                        .from('tickets')
+                        .select('*')
+                        .order('created_at', { ascending: false });
+                    
+                    if (error) throw error;
+                    
+                    // Convert cloud format to local format
+                    const localTickets = cloudTickets.map(ticket => ({
+                        id: ticket.id,
+                        purchaseDateTime: ticket.purchase_datetime,
+                        name: ticket.name,
+                        email: ticket.email,
+                        phone: ticket.phone,
+                        ticketType: ticket.ticket_type,
+                        quantity: ticket.quantity,
+                        maxScans: ticket.max_scans,
+                        amount: ticket.amount,
+                        event: ticket.event,
+                        eventTime: ticket.event_time,
+                        eventDate: ticket.event_date,
+                        venue: ticket.venue,
+                        used: ticket.used,
+                        usedAt: ticket.used_at,
+                        scannedBy: ticket.scanned_by,
+                        scanCount: ticket.scan_count || 0
+                    }));
+                    
+                    this.lastSync = new Date().toISOString();
+                    localStorage.setItem('lastSync', this.lastSync);
+                    
+                    return { 
+                        success: true, 
+                        tickets: localTickets,
+                        count: localTickets.length 
+                    };
+                    
+                } catch (error) {
+                    console.error('Error loading tickets from cloud:', error);
+                    return { success: false, error: error.message };
+                }
+            }
+            
+            async addToSyncQueue(action, data) {
+                this.syncQueue.push({ action, data, timestamp: new Date().toISOString() });
+                localStorage.setItem('syncQueue', JSON.stringify(this.syncQueue));
+                
+                if (this.isOnline && this.supabase) {
+                    await this.processSyncQueue();
+                }
+            }
+            
+            async processSyncQueue() {
+                if (!this.supabase || !this.isOnline || this.syncQueue.length === 0 || this.isSyncing) {
+                    return;
+                }
+                
+                this.isSyncing = true;
+                this.updateSyncStatus();
+                
+                try {
+                    // Load queue from localStorage
+                    const savedQueue = localStorage.getItem('syncQueue');
+                    this.syncQueue = savedQueue ? JSON.parse(savedQueue) : [];
+                    
+                    // Process each item in queue
+                    for (let i = 0; i < this.syncQueue.length; i++) {
+                        const item = this.syncQueue[i];
+                        
+                        try {
+                            if (item.action === 'update_ticket') {
+                                await this.updateTicketInCloud(item.data);
+                            } else if (item.action === 'add_scan') {
+                                await this.addScanToCloud(item.data);
+                            }
+                            
+                            // Remove processed item
+                            this.syncQueue.splice(i, 1);
+                            i--;
+                            
+                        } catch (error) {
+                            console.error('Failed to process sync item:', error);
+                            // Keep item in queue for retry
+                        }
+                    }
+                    
+                    // Save updated queue
+                    localStorage.setItem('syncQueue', JSON.stringify(this.syncQueue));
+                    
+                    this.lastSync = new Date().toISOString();
+                    localStorage.setItem('lastSync', this.lastSync);
+                    
+                } catch (error) {
+                    console.error('Error processing sync queue:', error);
+                } finally {
+                    this.isSyncing = false;
+                    this.updateSyncStatus();
+                }
+            }
+            
+            async updateTicketInCloud(ticket) {
+                if (!this.supabase) return;
+                
+                try {
+                    const { error } = await this.supabase
+                        .from('tickets')
+                        .upsert({
+                            id: ticket.id,
+                            used: ticket.used,
+                            used_at: ticket.usedAt,
+                            scanned_by: ticket.scannedBy,
+                            scan_count: ticket.scanCount,
+                            updated_at: new Date().toISOString()
+                        }, { onConflict: 'id' });
+                    
+                    if (error) throw error;
+                    
+                } catch (error) {
+                    console.error('Error updating ticket in cloud:', error);
+                    throw error;
+                }
+            }
+            
+            async addScanToCloud(scan) {
+                if (!this.supabase) return;
+                
+                try {
+                    const { error } = await this.supabase
+                        .from('scan_history')
+                        .insert({
+                            ticket_id: scan.ticketId,
+                            status: scan.status,
+                            timestamp: scan.timestamp,
+                            date: scan.date,
+                            name: scan.name,
+                            ticket_type: scan.ticketType,
+                            scan_count: scan.scanCount,
+                            max_scans: scan.maxScans
+                        });
+                    
+                    if (error) throw error;
+                    
+                } catch (error) {
+                    console.error('Error adding scan to cloud:', error);
+                    throw error;
+                }
+            }
+            
+            async clearCloudData() {
+                if (!this.supabase) {
+                    this.showToast('Cloud not configured', 'error');
+                    return false;
+                }
+                
+                if (!confirm('Are you sure you want to delete ALL data from the cloud? This cannot be undone.')) {
+                    return false;
+                }
+                
+                try {
+                    this.showToast('Clearing cloud data...', 'warning');
+                    
+                    // Delete scan history first (due to foreign key constraints if any)
+                    const { error: historyError } = await this.supabase
+                        .from('scan_history')
+                        .delete()
+                        .neq('id', 0); // Delete all records
+                    
+                    if (historyError) throw historyError;
+                    
+                    // Delete tickets
+                    const { error: ticketsError } = await this.supabase
+                        .from('tickets')
+                        .delete()
+                        .neq('id', ''); // Delete all records
+                    
+                    if (ticketsError) throw ticketsError;
+                    
+                    this.showToast('Cloud data cleared successfully', 'success');
+                    return true;
+                    
+                } catch (error) {
+                    console.error('Error clearing cloud data:', error);
+                    this.showToast('Failed to clear cloud data', 'error');
+                    return false;
+                }
+            }
+            
+            showToast(message, type = 'success') {
+                const toast = document.getElementById('toast');
+                toast.textContent = message;
+                toast.className = `toast ${type}`;
+                toast.classList.add('show');
+                
+                setTimeout(() => toast.classList.remove('show'), 3000);
+            }
+        }
+        
+        // ==============================================
+        // STORAGE MANAGER (Local Storage with Cloud Sync)
+        // ==============================================
+        class StorageManager {
+            constructor(cloudSyncManager) {
+                this.cloudSync = cloudSyncManager;
                 this.STORAGE_KEY = 'ticketValidatorData';
                 this.SCAN_HISTORY_KEY = 'ticketScanHistory';
                 this.init();
@@ -1225,16 +1666,13 @@
                 }
             }
             
-            saveTickets(tickets) {
+            async saveTickets(tickets, syncToCloud = true) {
                 try {
                     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(tickets));
                     
-                    // Also cache in service worker for offline access
-                    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-                        navigator.serviceWorker.controller.postMessage({
-                            type: 'CACHE_TICKET_DATA',
-                            payload: tickets
-                        });
+                    // Sync to cloud if enabled
+                    if (syncToCloud && this.cloudSync.supabase) {
+                        await this.cloudSync.syncTicketsToCloud(tickets);
                     }
                     
                     return true;
@@ -1255,12 +1693,18 @@
                 }
             }
             
-            saveScanHistory(history) {
+            async saveScanHistory(history, syncToCloud = true) {
                 try {
                     if (history.length > 50) {
                         history = history.slice(-50);
                     }
                     localStorage.setItem(this.SCAN_HISTORY_KEY, JSON.stringify(history));
+                    
+                    // Sync to cloud if enabled
+                    if (syncToCloud && this.cloudSync.supabase && history.length > 0) {
+                        const recentHistory = history.slice(-10); // Only sync recent history
+                        await this.cloudSync.syncScanHistoryToCloud(recentHistory);
+                    }
                 } catch (e) {
                     console.error('Error saving scan history:', e);
                 }
@@ -1270,7 +1714,7 @@
                 localStorage.removeItem(this.STORAGE_KEY);
                 localStorage.removeItem(this.SCAN_HISTORY_KEY);
                 this.init();
-                this.showToast('All data cleared', 'success');
+                this.showToast('Local data cleared', 'success');
             }
             
             showToast(message, type = 'success') {
@@ -1279,16 +1723,17 @@
                 toast.className = `toast ${type}`;
                 toast.classList.add('show');
                 
-                setTimeout(() => {
-                    toast.classList.remove('show');
-                }, 3000);
+                setTimeout(() => toast.classList.remove('show'), 3000);
             }
         }
         
-        // Ticket Manager
+        // ==============================================
+        // TICKET MANAGER (Updated for Cloud Sync)
+        // ==============================================
         class TicketManager {
-            constructor(storageManager) {
+            constructor(storageManager, cloudSyncManager) {
                 this.storage = storageManager;
+                this.cloudSync = cloudSyncManager;
                 this.tickets = this.storage.loadTickets();
                 this.scanHistory = this.storage.loadScanHistory();
                 this.lastScannedTicket = null;
@@ -1379,7 +1824,7 @@
                 document.getElementById('availableTickets').textContent = available;
             }
             
-            validateTicket(ticketId) {
+            async validateTicket(ticketId) {
                 const now = Date.now();
                 const timeSinceLastScan = now - this.lastScanTime;
                 
@@ -1406,12 +1851,10 @@
                         ticket: null
                     };
                 } else {
-                    // Handle tickets with quantity > 1
                     const maxScans = ticket.maxScans || ticket.quantity || 1;
                     const currentScans = ticket.scanCount || 0;
                     
                     if (maxScans === 1) {
-                        // Single ticket logic
                         if (ticket.used) {
                             result = {
                                 status: 'used',
@@ -1426,7 +1869,10 @@
                             ticket.usedAt = new Date().toISOString();
                             ticket.scannedBy = 'System';
                             ticket.scanCount = 1;
-                            this.storage.saveTickets(this.tickets);
+                            
+                            // Save to local storage and queue cloud sync
+                            await this.storage.saveTickets(this.tickets);
+                            await this.cloudSync.addToSyncQueue('update_ticket', ticket);
                             
                             result = {
                                 status: 'valid',
@@ -1443,9 +1889,7 @@
                             };
                         }
                     } else {
-                        // Multiple quantity ticket logic
                         if (currentScans >= maxScans) {
-                            // All scans used
                             result = {
                                 status: 'used',
                                 icon: '⛔',
@@ -1460,17 +1904,18 @@
                                 }
                             };
                         } else {
-                            // Still have scans remaining
                             ticket.scanCount = currentScans + 1;
                             
-                            // Mark as fully used if this is the last scan
                             if (ticket.scanCount >= maxScans) {
                                 ticket.used = true;
                                 ticket.usedAt = new Date().toISOString();
                             }
                             
                             ticket.scannedBy = 'System';
-                            this.storage.saveTickets(this.tickets);
+                            
+                            // Save to local storage and queue cloud sync
+                            await this.storage.saveTickets(this.tickets);
+                            await this.cloudSync.addToSyncQueue('update_ticket', ticket);
                             
                             const progress = Math.round((ticket.scanCount / maxScans) * 100);
                             const scansLeft = maxScans - ticket.scanCount;
@@ -1478,19 +1923,16 @@
                             let status, icon, message, color;
                             
                             if (ticket.scanCount === 1) {
-                                // First scan
                                 status = 'partial';
                                 icon = '✅';
                                 message = 'ENTRY 1/' + maxScans;
                                 color = 'status-partial';
                             } else if (ticket.scanCount === maxScans) {
-                                // Last scan
                                 status = 'valid';
                                 icon = '🎉';
                                 message = 'FINAL ENTRY';
                                 color = 'status-valid';
                             } else {
-                                // Middle scan
                                 status = 'partial';
                                 icon = '✅';
                                 message = `ENTRY ${ticket.scanCount}/${maxScans}`;
@@ -1520,7 +1962,7 @@
                 return result;
             }
             
-            addToScanHistory(ticketId, status, ticket = null) {
+            async addToScanHistory(ticketId, status, ticket = null) {
                 const scan = {
                     ticketId,
                     status,
@@ -1533,7 +1975,11 @@
                 };
                 
                 this.scanHistory.unshift(scan);
-                this.storage.saveScanHistory(this.scanHistory);
+                await this.storage.saveScanHistory(this.scanHistory);
+                
+                // Queue for cloud sync
+                await this.cloudSync.addToSyncQueue('add_scan', scan);
+                
                 this.renderScanHistory();
             }
             
@@ -1555,7 +2001,7 @@
                 });
             }
             
-            loadNewTickets(rawData) {
+            async loadNewTickets(rawData) {
                 try {
                     if (!rawData.trim()) {
                         throw new Error('Please paste ticket data first');
@@ -1575,9 +2021,10 @@
                     }
                     
                     this.tickets = newTickets;
-                    this.storage.saveTickets(this.tickets);
+                    await this.storage.saveTickets(this.tickets);
                     this.updateStats();
-                    this.storage.showToast(`${newTickets.length} tickets loaded successfully`, 'success');
+                    
+                    this.storage.showToast(`${newTickets.length} tickets loaded and synced to cloud`, 'success');
                     
                 } catch (error) {
                     console.error('Error loading tickets:', error);
@@ -1585,7 +2032,7 @@
                 }
             }
             
-            mergeTickets(rawData) {
+            async mergeTickets(rawData) {
                 try {
                     if (!rawData.trim()) {
                         throw new Error('Please paste ticket data first');
@@ -1622,13 +2069,37 @@
                     });
                     
                     this.tickets = Array.from(existingTicketsMap.values());
-                    this.storage.saveTickets(this.tickets);
+                    await this.storage.saveTickets(this.tickets);
                     this.updateStats();
+                    
                     this.storage.showToast(`Merged ${newTickets.length} tickets`, 'success');
                     
                 } catch (error) {
                     console.error('Error merging tickets:', error);
                     this.storage.showToast(`Error: ${error.message}`, 'error');
+                }
+            }
+            
+            async loadFromCloud() {
+                try {
+                    const result = await this.cloudSync.loadTicketsFromCloud();
+                    
+                    if (result.success) {
+                        this.tickets = result.tickets;
+                        await this.storage.saveTickets(this.tickets, false); // Don't re-sync
+                        this.updateStats();
+                        
+                        this.storage.showToast(`Loaded ${result.count} tickets from cloud`, 'success');
+                        return true;
+                    } else {
+                        this.storage.showToast(`Cloud error: ${result.error}`, 'error');
+                        return false;
+                    }
+                    
+                } catch (error) {
+                    console.error('Error loading from cloud:', error);
+                    this.storage.showToast('Error loading from cloud', 'error');
+                    return false;
                 }
             }
             
@@ -1697,7 +2168,9 @@
             }
         }
         
-        // QR Scanner Manager
+        // ==============================================
+        // QR SCANNER MANAGER
+        // ==============================================
         class QRScannerManager {
             constructor(ticketManager) {
                 this.ticketManager = ticketManager;
@@ -1832,9 +2305,9 @@
                 document.getElementById('stopCamera').disabled = !isScanning;
             }
             
-            onScanSuccess(decodedText, decodedResult) {
+            async onScanSuccess(decodedText, decodedResult) {
                 const ticketId = decodedText.trim();
-                const result = this.ticketManager.validateTicket(ticketId);
+                const result = await this.ticketManager.validateTicket(ticketId);
                 
                 if (result.status === 'debounced') {
                     this.ticketManager.storage.showToast(result.message, 'warning');
@@ -1868,7 +2341,6 @@
                 textElement.textContent = result.message;
                 subtextElement.textContent = result.submessage;
                 
-                // Show quantity progress for tickets with quantity > 1
                 if (result.ticket && (result.ticket.maxScans > 1 || result.ticket.quantity > 1)) {
                     const maxScans = result.ticket.maxScans || result.ticket.quantity || 1;
                     const currentScans = result.ticket.scanCount || 0;
@@ -1950,53 +2422,77 @@
         // MAIN APPLICATION INITIALIZATION
         // ==============================================
         
-        document.addEventListener('DOMContentLoaded', () => {
-            // Initialize PWA Manager first
-            const pwaManager = new PWAManager();
-            
-            // Initialize storage manager
-            const storageManager = new StorageManager();
-            
-            // Initialize ticket manager
-            const ticketManager = new TicketManager(storageManager);
-            
-            // Initialize QR scanner manager
-            const qrScanner = new QRScannerManager(ticketManager);
-            
-            // Make managers available globally
-            window.pwaManager = pwaManager;
-            window.ticketManager = ticketManager;
-            window.storageManager = storageManager;
-            window.qrScanner = qrScanner;
-            
-            // Setup UI event listeners
-            setupUIListeners(ticketManager, storageManager);
-            
-            // Auto-load example data if no tickets exist
-            if (ticketManager.tickets.length === 0) {
-                loadExampleData();
+        let pwaManager, cloudSyncManager, storageManager, ticketManager, qrScanner;
+        
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                // Initialize PWA Manager
+                pwaManager = new PWAManager();
+                
+                // Initialize Cloud Sync Manager
+                cloudSyncManager = new CloudSyncManager();
+                
+                // Initialize Storage Manager with Cloud Sync
+                storageManager = new StorageManager(cloudSyncManager);
+                
+                // Initialize Ticket Manager
+                ticketManager = new TicketManager(storageManager, cloudSyncManager);
+                
+                // Initialize QR Scanner Manager
+                qrScanner = new QRScannerManager(ticketManager);
+                
+                // Setup UI event listeners
+                setupUIListeners(ticketManager, storageManager, cloudSyncManager);
+                
+                // Load last sync time
+                const lastSync = localStorage.getItem('lastSync');
+                if (lastSync) {
+                    cloudSyncManager.lastSync = lastSync;
+                    cloudSyncManager.updateSyncStatus();
+                }
+                
+                // Try to sync with cloud on startup
+                setTimeout(() => {
+                    if (cloudSyncManager.supabase && navigator.onLine) {
+                        cloudSyncManager.syncAllData();
+                    }
+                }, 2000);
+                
+                // Auto-load example data if no tickets exist
+                if (ticketManager.tickets.length === 0) {
+                    loadExampleData();
+                }
+                
+                console.log('✅ Ticket Validator PWA with Cloud Sync Ready');
+                
+            } catch (error) {
+                console.error('Failed to initialize application:', error);
+                pwaManager.showToast('Failed to initialize application', 'error');
             }
-            
-            console.log('✅ Ticket Validator PWA Ready');
         });
         
-        function setupUIListeners(ticketManager, storageManager) {
-            document.getElementById('loadTickets').addEventListener('click', () => {
+        function setupUIListeners(ticketManager, storageManager, cloudSyncManager) {
+            document.getElementById('loadTickets').addEventListener('click', async () => {
                 const ticketData = document.getElementById('ticketData').value;
-                ticketManager.loadNewTickets(ticketData);
+                await ticketManager.loadNewTickets(ticketData);
             });
             
-            document.getElementById('mergeTickets').addEventListener('click', () => {
+            document.getElementById('mergeTickets').addEventListener('click', async () => {
                 const ticketData = document.getElementById('ticketData').value;
-                ticketManager.mergeTickets(ticketData);
+                await ticketManager.mergeTickets(ticketData);
             });
             
             document.getElementById('exportTickets').addEventListener('click', () => {
                 ticketManager.exportTickets();
             });
             
-            document.getElementById('clearStorage').addEventListener('click', () => {
-                if (confirm('Are you sure you want to clear ALL ticket data and scan history? This cannot be undone.')) {
+            document.getElementById('syncTickets').addEventListener('click', async () => {
+                pwaManager.showToast('Syncing with cloud...', 'info');
+                await cloudSyncManager.syncAllData();
+            });
+            
+            document.getElementById('clearStorage').addEventListener('click', async () => {
+                if (confirm('Are you sure you want to clear ALL LOCAL ticket data and scan history? This cannot be undone.')) {
                     storageManager.clearAllData();
                     ticketManager.tickets = [];
                     ticketManager.scanHistory = [];
@@ -2010,6 +2506,18 @@
                     document.getElementById('resultSubtext').textContent = 'Point camera at QR code to validate ticket';
                     document.getElementById('ticketDetails').style.display = 'none';
                     document.getElementById('quantityDisplay').style.display = 'none';
+                }
+            });
+            
+            document.getElementById('clearCloud').addEventListener('click', async () => {
+                const success = await cloudSyncManager.clearCloudData();
+                if (success) {
+                    // Clear local data as well
+                    storageManager.clearAllData();
+                    ticketManager.tickets = [];
+                    ticketManager.scanHistory = [];
+                    ticketManager.updateStats();
+                    ticketManager.renderScanHistory();
                 }
             });
         }
